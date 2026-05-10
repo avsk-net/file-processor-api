@@ -1,0 +1,19 @@
+[Unit]
+Description=FileProcessor Celery Beat Scheduler
+After=network.target redis.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/file_processor_api
+EnvironmentFile=/opt/file_processor_api/.env
+ExecStart=/opt/file_processor_api/venv/bin/celery \
+    -A app.workers.celery_app beat \
+    --loglevel=info
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

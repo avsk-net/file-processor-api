@@ -1,0 +1,20 @@
+[Unit]
+Description=FileProcessor Celery Worker
+After=network.target redis.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/file_processor_api
+EnvironmentFile=/opt/file_processor_api/.env
+ExecStart=/opt/file_processor_api/venv/bin/celery \
+    -A app.workers.celery_app worker \
+    --loglevel=info \
+    --concurrency=2
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
