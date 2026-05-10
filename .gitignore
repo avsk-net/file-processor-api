@@ -1,0 +1,30 @@
+# Environment — NEVER commit this
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Database (local only)
+*.db
+
+# Celery scheduler state
+celerybeat-schedule
+celerybeat.pid
+
+# Storage — don't commit uploaded files
+storage/uploads/*
+storage/processed/*
+!storage/uploads/.gitkeep
+!storage/processed/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
