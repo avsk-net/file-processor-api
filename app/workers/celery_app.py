@@ -1,5 +1,5 @@
-# app/workers/celery_app.py
 from celery import Celery
+from celery.schedules import crontab
 from app.core.config import settings
 
 celery_app = Celery(
@@ -17,3 +17,10 @@ celery_app.conf.update(
     enable_utc=True,
     task_acks_late=True,
 )
+
+celery_app.conf.beat_schedule = {
+    "cleanup-expired-files-hourly": {
+        "task": "app.workers.tasks.cleanup_expired_files",
+        "schedule": crontab(minute=0),
+    },
+}

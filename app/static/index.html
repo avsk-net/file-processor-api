@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FileProcessor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+      --border: #2e3248; --accent: #5b6ef5; --green: #22c55e;
+      --yellow: #f59e0b; --blue: #3b82f6; --red: #ef4444;
+      --gray: #6b7280; --text: #e2e8f0; --text-muted: #8b93a7;
+      --radius: 10px;
+    }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 60px; }
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .logo { font-size: 1.1rem; font-weight: 700; } .logo span { color: var(--accent); }
+    .health-badge { display: flex; align-items: center; gap: 7px; font-size: .78rem; color: var(--text-muted); }
+    .health-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray); transition: background .3s; }
+    .health-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .health-dot.offline { background: var(--red); }
+    .container { max-width: 960px; margin: 0 auto; padding: 36px 24px 0; }
+    .upload-card { background: var(--surface); border: 2px dashed var(--border); border-radius: var(--radius); padding: 48px 24px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s; position: relative; }
+    .upload-card:hover, .upload-card.dragover { border-color: var(--accent); background: #1e2136; }
+    .upload-card input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .upload-icon { font-size: 2.4rem; margin-bottom: 14px; }
+    .upload-card h2 { font-size: 1.05rem; font-weight: 600; margin-bottom: 6px; }
+    .upload-card p { font-size: .82rem; color: var(--text-muted); }
+    .upload-types { margin-top: 16px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    .type-pill { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 14px; font-size: .75rem; color: var(--text-muted); }
+    .upload-progress { display: none; margin-top: 16px; background: var(--surface2); border-radius: 6px; overflow: hidden; height: 6px; }
+    .upload-progress-bar { height: 100%; background: var(--accent); width: 0; transition: width .2s; border-radius: 6px; }
+    .upload-status-text { margin-top: 10px; font-size: .82rem; color: var(--text-muted); }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin: 36px 0 16px; }
+    .section-header h3 { font-size: .95rem; font-weight: 600; }
+    .auto-refresh { display: flex; align-items: center; gap: 8px; font-size: .78rem; color: var(--text-muted); }
+    .refresh-ring { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--accent); animation: spin 1.5s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .stats { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 20px; flex: 1; min-width: 110px; }
+    .stat-card .val { font-size: 1.5rem; font-weight: 700; line-height: 1; }
+    .stat-card .lbl { font-size: .72rem; color: var(--text-muted); margin-top: 4px; }
+    .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { background: var(--surface2); text-align: left; padding: 11px 16px; font-size: .72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    td { padding: 12px 16px; font-size: .84rem; vertical-align: middle; }
+    .file-name { font-weight: 500; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-name small { display: block; color: var(--text-muted); font-size: .72rem; font-weight: 400; margin-top: 1px; }
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: .72rem; font-weight: 600; }
+    .badge-csv { background: #1a3a2a; color: #4ade80; }
+    .badge-image { background: #1e2d4a; color: #60a5fa; }
+    .badge-pdf { background: #3a1a1a; color: #f87171; }
+    .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: .75rem; font-weight: 600; }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .s-queued { background: #2a2510; color: var(--yellow); } .s-queued .status-dot { background: var(--yellow); }
+    .s-processing { background: #1a2540; color: var(--blue); } .s-processing .status-dot { background: var(--blue); animation: pulse 1s infinite; }
+    .s-done { background: #0f2a1a; color: var(--green); } .s-done .status-dot { background: var(--green); }
+    .s-failed { background: #2a1010; color: var(--red); } .s-failed .status-dot { background: var(--red); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+    .expiry { font-size: .78rem; color: var(--text-muted); }
+    .expiry.urgent { color: var(--red); font-weight: 600; }
+    .actions { display: flex; gap: 8px; }
+    .btn { border: none; border-radius: 6px; cursor: pointer; font-size: .78rem; font-weight: 600; padding: 6px 12px; transition: opacity .15s, transform .1s; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+    .btn:hover { opacity: .85; } .btn:active { transform: scale(.96); }
+    .btn-download { background: var(--accent); color: #fff; }
+    .btn-delete { background: var(--surface2); color: var(--red); border: 1px solid var(--border); }
+    .btn-disabled { background: var(--surface2); color: var(--gray); cursor: not-allowed; }
+    .empty-state { text-align: center; padding: 56px 24px; color: var(--text-muted); font-size: .88rem; }
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; opacity: .5; }
+    #toast-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 10px; z-index: 999; }
+    .toast { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 18px; font-size: .84rem; min-width: 260px; max-width: 340px; display: flex; align-items: center; gap: 10px; animation: slideIn .25s ease; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+    .toast.success { border-left: 3px solid var(--green); }
+    .toast.error { border-left: 3px solid var(--red); }
+    .toast.info { border-left: 3px solid var(--accent); }
+    @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  </style>
+</head>
+<body>
+<header>
+  <div class="logo">File<span>Processor</span></div>
+  <div class="health-badge">
+    <div class="health-dot" id="health-dot"></div>
+    <span id="health-text">checking…</span>
+  </div>
+</header>
+<div class="container">
+  <div class="upload-card" id="drop-zone">
+    <input type="file" id="file-input" accept=".csv,.jpg,.jpeg,.png,.webp,.pdf" />
+    <div class="upload-icon">📂</div>
+    <h2>Drop a file here or click to browse</h2>
+    <p>CSV, Images, and PDFs accepted. Max 50MB. Files expire after 24h.</p>
+    <div class="upload-types">
+      <span class="type-pill">📊 CSV → JSON report</span>
+      <span class="type-pill">🖼 Image → resized JPEG</span>
+      <span class="type-pill">📄 PDF → text extraction</span>
+    </div>
+    <div class="upload-progress" id="upload-progress">
+      <div class="upload-progress-bar" id="progress-bar"></div>
+    </div>
+    <div class="upload-status-text" id="upload-status"></div>
+  </div>
+  <div class="stats" id="stats-row">
+    <div class="stat-card"><div class="val" id="stat-total">–</div><div class="lbl">Total files</div></div>
+    <div class="stat-card"><div class="val" id="stat-processing" style="color:var(--blue)">–</div><div class="lbl">Processing</div></div>
+    <div class="stat-card"><div class="val" id="stat-done" style="color:var(--green)">–</div><div class="lbl">Completed</div></div>
+    <div class="stat-card"><div class="val" id="stat-failed" style="color:var(--red)">–</div><div class="lbl">Failed</div></div>
+  </div>
+  <div class="section-header">
+    <h3>Recent Files</h3>
+    <div class="auto-refresh"><div class="refresh-ring"></div>auto-refresh every 3s</div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>File</th><th>Type</th><th>Status</th><th>Expires</th><th>Actions</th></tr></thead>
+      <tbody id="files-tbody">
+        <tr><td colspan="5"><div class="empty-state"><div class="icon">🗂</div>No files yet. Upload one above.</div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+<div id="toast-container"></div>
+<script>
+  const API = '/api/v1';
+  function toast(msg, type='info', duration=4000) {
+    const icons = { success:'✅', error:'❌', info:'ℹ️' };
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), duration);
+  }
+  async function checkHealth() {
+    const dot = document.getElementById('health-dot');
+    const text = document.getElementById('health-text');
+    try {
+      const r = await fetch(`${API}/health`);
+      if (r.ok) { dot.className='health-dot online'; text.textContent='API online'; }
+      else throw new Error();
+    } catch { dot.className='health-dot offline'; text.textContent='API offline'; }
+  }
+  function fmtExpiry(s) {
+    if (s<=0) return 'Expired';
+    const h=Math.floor(s/3600), m=Math.floor((s%3600)/60);
+    return h>0 ? `${h}h ${m}m` : `${m}m`;
+  }
+  function typeBadge(t) {
+    const map={csv:'📊 CSV',image:'🖼 Image',pdf:'📄 PDF'};
+    return `<span class="badge badge-${t}">${map[t]||t}</span>`;
+  }
+  function statusBadge(s) {
+    const map={queued:'Queued',processing:'Processing',done:'Done',failed:'Failed'};
+    return `<span class="status-badge s-${s}"><span class="status-dot"></span>${map[s]||s}</span>`;
+  }
+  function actionButtons(f) {
+    const canDownload = f.status==='done' && !f.expired;
+    const dl = canDownload
+      ? `<a class="btn btn-download" href="${API}/download/${f.file_id}">⬇ Download</a>`
+      : `<span class="btn btn-disabled">⬇ Download</span>`;
+    return `<div class="actions">${dl}<button class="btn btn-delete" onclick="deleteFile('${f.file_id}',this)">🗑</button></div>`;
+  }
+  async function loadFiles() {
+    try {
+      const r = await fetch(`${API}/files`);
+      const files = await r.json();
+      renderStats(files); renderFiles(files);
+    } catch(e) { console.error('Failed to load files:', e); }
+  }
+  function renderStats(files) {
+    document.getElementById('stat-total').textContent = files.length;
+    document.getElementById('stat-processing').textContent = files.filter(f=>f.status==='processing'||f.status==='queued').length;
+    document.getElementById('stat-done').textContent = files.filter(f=>f.status==='done').length;
+    document.getElementById('stat-failed').textContent = files.filter(f=>f.status==='failed').length;
+  }
+  function renderFiles(files) {
+    const tbody = document.getElementById('files-tbody');
+    if (!files.length) {
+      tbody.innerHTML='<tr><td colspan="5"><div class="empty-state"><div class="icon">🗂</div>No files yet. Upload one above.</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = files.map(f => {
+      const urgent = f.seconds_left>0 && f.seconds_left<3600;
+      return `<tr>
+        <td><div class="file-name" title="${f.original_name}">${f.original_name}<small>${f.file_id.slice(0,8)}…</small></div></td>
+        <td>${typeBadge(f.file_type)}</td>
+        <td>${statusBadge(f.status)}</td>
+        <td><span class="expiry ${urgent?'urgent':''}">${fmtExpiry(f.seconds_left)}</span></td>
+        <td>${actionButtons(f)}</td>
+      </tr>`;
+    }).join('');
+  }
+  async function deleteFile(fileId, btn) {
+    btn.disabled=true;
+    try {
+      const r = await fetch(`${API}/files/${fileId}`, {method:'DELETE'});
+      if (r.ok) { toast('File deleted.','success'); loadFiles(); }
+      else { const d=await r.json(); toast(d.detail||'Delete failed.','error'); btn.disabled=false; }
+    } catch { toast('Network error.','error'); btn.disabled=false; }
+  }
+  async function uploadFile(file) {
+    const progressWrap=document.getElementById('upload-progress');
+    const progressBar=document.getElementById('progress-bar');
+    const statusText=document.getElementById('upload-status');
+    const dropZone=document.getElementById('drop-zone');
+    progressWrap.style.display='block'; progressBar.style.width='0%';
+    statusText.textContent=`Uploading ${file.name}…`;
+    dropZone.style.pointerEvents='none';
+    let fakeProgress=0;
+    const ticker=setInterval(()=>{ fakeProgress=Math.min(fakeProgress+Math.random()*15,85); progressBar.style.width=fakeProgress+'%'; },200);
+    const formData=new FormData(); formData.append('file',file);
+    try {
+      const r=await fetch(`${API}/upload`,{method:'POST',body:formData});
+      const data=await r.json();
+      clearInterval(ticker); progressBar.style.width='100%';
+      if (r.ok) { statusText.textContent='✓ Uploaded — processing queued'; toast(`${file.name} uploaded!`,'success'); loadFiles(); }
+      else { statusText.textContent=`✗ ${data.detail||'Upload failed'}`; toast(data.detail||'Upload failed.','error'); }
+    } catch(e) { clearInterval(ticker); statusText.textContent='✗ Network error'; toast('Network error.','error'); }
+    finally {
+      dropZone.style.pointerEvents='';
+      setTimeout(()=>{ progressWrap.style.display='none'; statusText.textContent=''; progressBar.style.width='0%'; },3000);
+    }
+  }
+  const dropZone=document.getElementById('drop-zone');
+  const fileInput=document.getElementById('file-input');
+  fileInput.addEventListener('change', e=>{ if(e.target.files[0]) uploadFile(e.target.files[0]); fileInput.value=''; });
+  dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', ()=>dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e=>{ e.preventDefault(); dropZone.classList.remove('dragover'); if(e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]); });
+  checkHealth(); loadFiles();
+  setInterval(loadFiles,3000);
+  setInterval(checkHealth,30000);
+</script>
+</body>
+</html>
