@@ -27,7 +27,7 @@ Upload a CSV, image, or PDF — get back a processed result. Files expire automa
 
 ---
 
-## One-click deployment (VPS)
+## One-click deployment
 
 ```bash
 git clone https://github.com/avsk-net/file-processor-api.git
@@ -37,14 +37,9 @@ sudo bash deploy.sh
 
 The script will ask for your domain (optional) and whether to enable HTTPS, then handle everything: packages, Redis, Python env, systemd services, Nginx, and Let's Encrypt.
 
-**Update after a code push:**
-```bash
-sudo bash update.sh
-```
-
 ---
 
-## Local development
+## Test
 
 **Requirements:** Python 3.10+, Redis
 
@@ -94,19 +89,6 @@ pytest tests/ -v
 
 ---
 
-## API reference
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/v1/upload` | Upload a file |
-| `GET` | `/api/v1/files` | List all files with status |
-| `GET` | `/api/v1/status/{id}` | Check processing status |
-| `GET` | `/api/v1/download/{id}` | Download processed result |
-| `DELETE` | `/api/v1/files/{id}` | Delete a file manually |
-| `GET` | `/api/v1/health` | Health check |
-
-**Limits:** 50MB max · CSV, JPG, PNG, WEBP, PDF only · 10 uploads/min per IP · 24h expiry
-
 ```bash
 # Upload
 curl -X POST http://localhost:8000/api/v1/upload -F "file=@data.csv"
@@ -153,26 +135,3 @@ file-processor-api/
 
 ---
 
-## Checkpoint
-
-| Component | Status |
-|---|---|
-| Upload endpoint | ✅ |
-| File listing + status + download + delete | ✅ |
-| CSV processor (pandas) | ✅ |
-| Image processor (Pillow, max 800×800) | ✅ |
-| PDF processor (pdfplumber) | ✅ |
-| Redis + Celery background queue | ✅ |
-| Celery Beat 24h auto-cleanup | ✅ |
-| SQLite metadata tracking | ✅ |
-| Rate limiting (10 req/min per IP) | ✅ |
-| Structured logging | ✅ |
-| Web dashboard UI | ✅ |
-| Automated tests | ✅ |
-| One-click deploy script | ✅ |
-| One-click update script | ✅ |
-| systemd services | ✅ |
-| Nginx reverse proxy | ✅ |
-| HTTPS / Let's Encrypt | ✅ (via deploy.sh with domain) |
-| GitHub repository | ✅ |
-| VPS deployed | ✅ |
